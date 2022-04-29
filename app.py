@@ -50,6 +50,59 @@ def exchangeRate():
 
     return jsonify({"usd_to_lbp": usd_to_lbp, "lbp_to_usd": lbp_to_usd})
 
+@app.route('/stats', methods=['GET'])
+def stats():
+    d = datetime.datetime.now()
+    diff = datetime.timedelta(days=1)
+
+    sell_per_day = {}
+    buy_per_day = {}
+
+    for i in range(20):
+        avg_usd_lbp = Transaction.query.filter(Transaction.added_date.between(d - i * diff, d),
+                                               Transaction.usd_to_lbp == True).all()
+        avg_lbp_usd = Transaction.query.filter(Transaction.added_date.between(d - i * diff, d),
+                                               Transaction.usd_to_lbp == True).all()
+        sell = []
+        buy = []
+
+        for el in avg_usd_lbp:
+            buy.append(el.lbp_amount / el.usd_amount)
+        for el in avg_lbp_usd:
+            sell.append(el.lbp_amount / el.usd_amount)
+
+        if len(buy) > 0:
+            usd_to_lbp = round((sum(buy) / len(buy)), 2)
+        else:
+            usd_to_lbp = 0
+        if len(sell) > 0:
+            lbp_to_usd = round((sum(sell) / len(sell)), 2)
+        else:
+            lbp_to_usd = 0
+
+        sell_per_day[avg_lbp_usd.count()] = lbp_to_usd
+        buy_per_day[avg_usd_lbp.count()] = usd_to_lbp
+    return jsonify({"avg_sell":sell_per_day,"avg_buy":buy_per_day})
+
+
+@app.route('/addMoney', methods=['POST'])
+def addMoney():
+    amount_lbp = request.json['amount_lbp']
+    amount_usd = request.json['amount_usd']
+    username = request.json['username']
+
+    u = User.query.filter_by(user_name=username).first()
+
+    if u:
+        if amount_lbp:
+            u.balance_LBP += amount_lbp
+        if amount_usd:
+            u.balance_USD += amount_usd
+        db.session.commit()
+        return jsonify(user_schema.dump(u))
+    else:
+        return jsonify({"Error": "User input not valid"})
+
 
 @app.route('/transaction', methods=['POST'])
 def transaction():
