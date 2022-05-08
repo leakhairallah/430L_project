@@ -89,7 +89,7 @@ def addItem():
                     return jsonify({"Error": "Please enter valid amounts"})
 
                 else:
-                    i = Item(lbpAmount, usdAmount, sell, False, decoded)
+                    i = Item(lbpAmount, usdAmount, sell, None, decoded)
                     db.session.add(i)
                     db.session.commit()
                     return jsonify(item_schema.dump(i))
@@ -99,7 +99,7 @@ def addItem():
                     return jsonify({"Error": "Please enter valid amounts"})
 
                 else:
-                    i = Item(lbpAmount, usdAmount, sell, False, decoded)
+                    i = Item(lbpAmount, usdAmount, sell, None, decoded)
                     db.session.add(i)
                     db.session.commit()
                     return jsonify(item_schema.dump(i))
@@ -155,14 +155,22 @@ def purchase():
                 user1.balance_lbp -= i.lbpAmount
                 user2.balance_usd -= i.usdAmount
                 user2.balance_lbp += i.lbpAmount
+                t1 = Transaction(i.usdAmount, i.lbpAmount, True, user1)
+                t2 = Transaction(i.usdAmount, i.lbpAmount, False, user2)
 
             else:
                 user1.balance_usd -= i.usdAmount
                 user1.balance_lbp += i.lbpAmount
                 user2.balance_usd += i.usdAmount
                 user2.balance_lbp -= i.lbpAmount
+                t1 = Transaction(i.usdAmount, i.lbpAmount, False, user1)
+                t2 = Transaction(i.usdAmount, i.lbpAmount, True, user2)
 
-            i.bought = True
+            i.bought = user1.id
+
+            db.session.add(t1)
+            db.session.add(t2)
+
             db.session.commit()
 
             return jsonify({"balance_usd": user1.balance_usd, "balance_lbp": user1.balance_lbp})
@@ -243,12 +251,36 @@ def user():
     user_name = request.json["user_name"]
     password = request.json["password"]
 
+    if User.query.filter_by(user_name=user_name):
+        return jsonify({"Error": "Username exists"})
+
     u = User(user_name, password)
 
     db.session.add(u)
     db.session.commit()
 
     return jsonify(user_schema.dump(u))
+
+
+@app.route('/userInfo', methods=['GET'])
+def userInfo():
+    token = extract_auth_token(request)
+
+    if token is None:
+        return jsonify({"Error": "No user"})
+
+    else:
+        try:
+            decoded = decode_token(token)
+
+            u = User.query.filter_by(id=decoded)
+
+            return jsonify(user_schema.dump(u))
+
+        except jwt.ExpiredSignatureError:
+            abort(403)
+        except jwt.InvalidTokenError:
+            abort(403)
 
 
 @app.route('/authentication', methods=['POST'])

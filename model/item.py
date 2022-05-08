@@ -14,13 +14,13 @@ class Item(db.Model):
     lbpAmount = db.Column(db.Float, nullable=False)
     usdAmount = db.Column(db.Float, nullable=False)
     sell = db.Column(db.Boolean, nullable=False)
-    bought = db.Column(db.Boolean, nullable=False)
+    bought = db.Column(db.Integer, db.ForeignKey('user.id', ondelete="cascade", onupdate="cascade"), nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete="cascade", onupdate="cascade"), nullable=False, )
 
 
 class ItemSchema(ma.Schema):
     class Meta:
-        fields = ("lbpAmount", "usdAmount", "sell")
+        fields = ("id", "lbpAmount", "usdAmount", "sell", "user_id", "bought")
         model = Item
 
 

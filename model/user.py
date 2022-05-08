@@ -7,6 +7,7 @@ class User(db.Model):
         self.hashed_password = bcrypt.generate_password_hash(password)
         self.balance_lbp = 0
         self.balance_usd = 0
+        self.is_admin = False
 
     id = db.Column(db.Integer, primary_key=True)
     user_name = db.Column(db.String(30), unique=True)
@@ -19,7 +20,7 @@ class User(db.Model):
 
 class UserSchema(ma.Schema):
     class Meta:
-        fields = ("id", "user_name")
+        fields = ("id", "user_name", "balance_lbp", "balance_usd", "is_admin")
         model = User
 
 
