@@ -1,5 +1,5 @@
 import datetime
-from ..app import db, ma, bcrypt
+from app import db, ma, bcrypt
 
 
 class Transaction(db.Model):

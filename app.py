@@ -6,7 +6,7 @@ from flask_marshmallow import Marshmallow
 from flask_bcrypt import Bcrypt
 import jwt
 
-from .db_config import DB_CONFIG
+from db_config import DB_CONFIG
 
 app = Flask(__name__)
 
@@ -18,37 +18,15 @@ CORS(app)
 
 SECRET_KEY = "b'|\xe7\xbfU3`\xc4\xec\xa7\xa9zf:}\xb5\xc7\xb9\x139^3@Dv'"
 
-from .model.user import User, user_schema
-from .model.transaction import Transaction, transaction_schema, transactions_schema
+from model.user import User, user_schema
+from model.transaction import Transaction, transaction_schema, transactions_schema
+from model.item import Item, item_schema, items_schema
 
 
 @app.route('/exchangeRate', methods=['GET'])
 def exchangeRate():
-    avg_usd_lbp = Transaction.query.filter(
-        Transaction.added_date.between(datetime.datetime.now() - datetime.timedelta(days=3), datetime.datetime.now()),
-        Transaction.usd_to_lbp == True).all()
-    avg_lbp_usd = Transaction.query.filter(
-        Transaction.added_date.between(datetime.datetime.now() - datetime.timedelta(days=3), datetime.datetime.now()),
-        Transaction.usd_to_lbp == False).all()
-
-    sell = []
-    buy = []
-
-    for el in avg_usd_lbp:
-        buy.append(el.lbp_amount / el.usd_amount)
-    for el in avg_lbp_usd:
-        sell.append(el.lbp_amount / el.usd_amount)
-
-    if len(buy) > 0:
-        usd_to_lbp = round((sum(buy) / len(buy)), 2)
-    else:
-        usd_to_lbp = 0
-    if len(sell) > 0:
-        lbp_to_usd = round((sum(sell) / len(sell)), 2)
-    else:
-        lbp_to_usd = 0
-
-    return jsonify({"usd_to_lbp": usd_to_lbp, "lbp_to_usd": lbp_to_usd})
+    res = getRates()
+    return jsonify({"usd_to_lbp": res[0], "lbp_to_usd": res[1]})
 
 
 @app.route('/stats', methods=['GET'])
@@ -87,8 +65,112 @@ def stats():
         buy_per_day_count.append(avg_usd_lbp.count())
         sell_per_day_avg.append(lbp_to_usd)
         buy_per_day_avg.append(usd_to_lbp)
-        
-    return jsonify({"sell_count": sell_per_day_count, "buy_count": buy_per_day_count, "avg_sell": sell_per_day_avg, "avg_buy": buy_per_day_avg})
+
+    return jsonify({"sell_count": sell_per_day_count, "buy_count": buy_per_day_count, "avg_sell": sell_per_day_avg,
+                    "avg_buy": buy_per_day_avg})
+
+
+@app.route('/addItem', methods=["POST"])
+def addItem():
+    usdAmount = request.json["usdAmount"]
+    lbpAmount = request.json["lbpAmount"]
+    sell = request.json["sell"]
+    token = extract_auth_token(request)
+
+    if token is None:
+        abort(403)
+    else:
+        try:
+            decoded = decode_token(token)
+            rates = getRates()
+
+            if sell:
+                if 1.05*rates[1] < lbpAmount/usdAmount < 0.95*rates[1]:
+                    return jsonify({"Error": "Please enter valid amounts"})
+
+                else:
+                    i = Item(lbpAmount, usdAmount, sell, False, decoded)
+                    db.session.add(i)
+                    db.session.commit()
+                    return jsonify(item_schema.dump(i))
+
+            else:
+                if 1.05*rates[0] < lbpAmount/usdAmount < 1.05*rates[0]:
+                    return jsonify({"Error": "Please enter valid amounts"})
+
+                else:
+                    i = Item(lbpAmount, usdAmount, sell, False, decoded)
+                    db.session.add(i)
+                    db.session.commit()
+                    return jsonify(item_schema.dump(i))
+
+        except jwt.ExpiredSignatureError:
+            abort(403)
+        except jwt.InvalidTokenError:
+            abort(403)
+
+
+@app.route('/getItems', methods=["GET"])
+def getItems():
+    i = Item.query.all()
+    return jsonify(items_schema.dump(i))
+
+
+@app.route('/getItemsByUser', methods=["POST"])
+def getItemsByUser():
+    token = extract_auth_token(request)
+
+    if token is None:
+        abort(403)
+    else:
+        try:
+            decoded = decode_token(token)
+            all_items = Item.query.filter_by(user_id=decoded).all()
+            return jsonify(items_schema.dump(all_items))
+
+        except jwt.ExpiredSignatureError:
+            abort(403)
+        except jwt.InvalidTokenError:
+            abort(403)
+
+
+
+@app.route('/purchase', methods=['POST'])
+def purchase():
+    token = extract_auth_token(request)
+    idItem = request.json["idItem"]
+
+    i = Item.query.filter_by(id=idItem).first()
+
+    if token is None:
+        abort(403)
+    else:
+        try:
+            decoded = decode_token(token)
+            user1 = User.query.filter_by(id=decoded)
+            user2 = User.query.filter_by(id=i.user_id)
+
+            if i.sell:
+                user1.balance_usd += i.usdAmount
+                user1.balance_lbp -= i.lbpAmount
+                user2.balance_usd -= i.usdAmount
+                user2.balance_lbp += i.lbpAmount
+
+            else:
+                user1.balance_usd -= i.usdAmount
+                user1.balance_lbp += i.lbpAmount
+                user2.balance_usd += i.usdAmount
+                user2.balance_lbp -= i.lbpAmount
+
+            i.bought = True
+            db.session.commit()
+
+            return jsonify({"balance_usd": user1.balance_usd, "balance_lbp": user1.balance_lbp})
+
+        except jwt.ExpiredSignatureError:
+            abort(403)
+        except jwt.InvalidTokenError:
+            abort(403)
 
 
 @app.route('/addMoney', methods=['POST'])
@@ -213,3 +295,31 @@ def extract_auth_token(authenticated_request):
 def decode_token(token):
     payload = jwt.decode(token, SECRET_KEY, 'HS256')
     return payload['sub']
+
+
+def getRates():
+    avg_usd_lbp = Transaction.query.filter(
+        Transaction.added_date.between(datetime.datetime.now() - datetime.timedelta(days=3), datetime.datetime.now()),
+        Transaction.usd_to_lbp == True).all()
+    avg_lbp_usd = Transaction.query.filter(
+        Transaction.added_date.between(datetime.datetime.now() - datetime.timedelta(days=3), datetime.datetime.now()),
+        Transaction.usd_to_lbp == False).all()
+
+    sell = []
+    buy = []
+
+    for el in avg_usd_lbp:
+        buy.append(el.lbp_amount / el.usd_amount)
+    for el in avg_lbp_usd:
+        sell.append(el.lbp_amount / el.usd_amount)
+
+    if len(buy) > 0:
+        usd_to_lbp = round((sum(buy) / len(buy)), 2)
+    else:
+        usd_to_lbp = 0
+    if len(sell) > 0:
+        lbp_to_usd = round((sum(sell) / len(sell)), 2)
+    else:
+        lbp_to_usd = 0
+
+    return usd_to_lbp, lbp_to_usd
