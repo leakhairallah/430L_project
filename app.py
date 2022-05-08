@@ -50,13 +50,16 @@ def exchangeRate():
 
     return jsonify({"usd_to_lbp": usd_to_lbp, "lbp_to_usd": lbp_to_usd})
 
+
 @app.route('/stats', methods=['GET'])
 def stats():
     d = datetime.datetime.now()
     diff = datetime.timedelta(days=1)
 
-    sell_per_day = {}
-    buy_per_day = {}
+    sell_per_day_count = []
+    buy_per_day_count = []
+    sell_per_day_avg = []
+    buy_per_day_avg = []
 
     for i in range(20):
         avg_usd_lbp = Transaction.query.filter(Transaction.added_date.between(d - i * diff, d),
@@ -80,9 +83,12 @@ def stats():
         else:
             lbp_to_usd = 0
 
-        sell_per_day[avg_lbp_usd.count()] = lbp_to_usd
-        buy_per_day[avg_usd_lbp.count()] = usd_to_lbp
-    return jsonify({"avg_sell":sell_per_day,"avg_buy":buy_per_day})
+        sell_per_day_count.append(avg_lbp_usd.count())
+        buy_per_day_count.append(avg_usd_lbp.count())
+        sell_per_day_avg.append(lbp_to_usd)
+        buy_per_day_avg.append(usd_to_lbp)
+        
+    return jsonify({"sell_count": sell_per_day_count, "buy_count": buy_per_day_count, "avg_sell": sell_per_day_avg, "avg_buy": buy_per_day_avg})
 
 
 @app.route('/addMoney', methods=['POST'])
