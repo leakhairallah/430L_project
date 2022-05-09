@@ -122,8 +122,8 @@ def getItemsByUser():
         try:
             decoded = decode_token(token)
             u = User.query.filter_by(id=decoded).first()
-            all_items_put = Item.query.filter_by(user_id=decoded).all()
-            all_items_bought = Item.query.filter_by(bought=u.user_name).all()
+            all_items_put = Item.query.filter_by(user_id=u.user_name).all()
+            all_items_bought = Item.query.filter_by(bought=decoded).all()
 
             return jsonify({"put": items_schema.dump(all_items_put), "bought": items_schema.dump(all_items_bought)})
 
