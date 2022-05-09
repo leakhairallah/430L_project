@@ -15,7 +15,7 @@ class Item(db.Model):
     usdAmount = db.Column(db.Float, nullable=False)
     sell = db.Column(db.Boolean, nullable=False)
     bought = db.Column(db.Integer, db.ForeignKey('user.id', ondelete="cascade", onupdate="cascade"), nullable=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete="cascade", onupdate="cascade"), nullable=False, )
+    user_id = db.Column(db.String(30), db.ForeignKey('user.user_name', ondelete="cascade", onupdate="cascade"), nullable=False, )
 
 
 class ItemSchema(ma.Schema):

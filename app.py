@@ -72,9 +72,9 @@ def stats():
 
 @app.route('/addItem', methods=["POST"])
 def addItem():
-    usdAmount = request.json["usdAmount"]
-    lbpAmount = request.json["lbpAmount"]
-    sell = request.json["sell"]
+    usdAmount = int(request.json["usdAmount"])
+    lbpAmount = int(request.json["lbpAmount"])
+    usd_to_lbp = bool(request.json["usd_to_lbp"])
     token = extract_auth_token(request)
 
     if token is None:
@@ -82,27 +82,20 @@ def addItem():
     else:
         try:
             decoded = decode_token(token)
+            u = User.query.filter_by(id=decoded).first()
             rates = getRates()
 
-            if sell:
-                if 1.05*rates[1] < lbpAmount/usdAmount < 0.95*rates[1]:
-                    return jsonify({"Error": "Please enter valid amounts"})
-
-                else:
-                    i = Item(lbpAmount, usdAmount, sell, None, decoded)
-                    db.session.add(i)
-                    db.session.commit()
-                    return jsonify(item_schema.dump(i))
+            if not usd_to_lbp:
+                i = Item(lbpAmount, usdAmount, usd_to_lbp, None, u.user_name)
+                db.session.add(i)
+                db.session.commit()
+                return jsonify(item_schema.dump(i))
 
             else:
-                if 1.05*rates[0] < lbpAmount/usdAmount < 1.05*rates[0]:
-                    return jsonify({"Error": "Please enter valid amounts"})
-
-                else:
-                    i = Item(lbpAmount, usdAmount, sell, None, decoded)
-                    db.session.add(i)
-                    db.session.commit()
-                    return jsonify(item_schema.dump(i))
+                i = Item(lbpAmount, usdAmount, usd_to_lbp, None, u.user_name)
+                db.session.add(i)
+                db.session.commit()
+                return jsonify(item_schema.dump(i))
 
         except jwt.ExpiredSignatureError:
             abort(403)
@@ -112,7 +105,8 @@ def addItem():
 
 @app.route('/getItems', methods=["GET"])
 def getItems():
-    i = Item.query.all()
+    i = Item.query.filter_by(bought=None).all()
+    print(i)
     return jsonify(items_schema.dump(i))
 
 
@@ -138,7 +132,8 @@ def getItemsByUser():
 @app.route('/purchase', methods=['POST'])
 def purchase():
     token = extract_auth_token(request)
-    idItem = request.json["idItem"]
+    print(request.json)
+    idItem = request.json["itemId"]
 
     i = Item.query.filter_by(id=idItem).first()
 
@@ -147,24 +142,24 @@ def purchase():
     else:
         try:
             decoded = decode_token(token)
-            user1 = User.query.filter_by(id=decoded)
-            user2 = User.query.filter_by(id=i.user_id)
+            user1 = User.query.filter_by(id=decoded).first()
+            user2 = User.query.filter_by(user_name=i.user_id).first()
 
             if i.sell:
                 user1.balance_usd += i.usdAmount
                 user1.balance_lbp -= i.lbpAmount
                 user2.balance_usd -= i.usdAmount
                 user2.balance_lbp += i.lbpAmount
-                t1 = Transaction(i.usdAmount, i.lbpAmount, True, user1)
-                t2 = Transaction(i.usdAmount, i.lbpAmount, False, user2)
+                t1 = Transaction(i.usdAmount, i.lbpAmount, True, user1.id)
+                t2 = Transaction(i.usdAmount, i.lbpAmount, False, user2.id)
 
             else:
                 user1.balance_usd -= i.usdAmount
                 user1.balance_lbp += i.lbpAmount
                 user2.balance_usd += i.usdAmount
                 user2.balance_lbp -= i.lbpAmount
-                t1 = Transaction(i.usdAmount, i.lbpAmount, False, user1)
-                t2 = Transaction(i.usdAmount, i.lbpAmount, True, user2)
+                t1 = Transaction(i.usdAmount, i.lbpAmount, False, user1.id)
+                t2 = Transaction(i.usdAmount, i.lbpAmount, True, user2.id)
 
             i.bought = user1.id
 
@@ -191,9 +186,9 @@ def addMoney():
 
     if u:
         if amount_lbp:
-            u.balance_LBP += amount_lbp
+            u.balance_lbp += int(amount_lbp)
         if amount_usd:
-            u.balance_USD += amount_usd
+            u.balance_usd += int(amount_usd)
         db.session.commit()
         return jsonify(user_schema.dump(u))
     else:
@@ -246,12 +241,12 @@ def transactionG():
             abort(403)
 
 
-@app.route('/user', methods=['POST'])
+@app.route('/signUp', methods=['POST'])
 def user():
     user_name = request.json["user_name"]
     password = request.json["password"]
 
-    if User.query.filter_by(user_name=user_name):
+    if User.query.filter_by(user_name=user_name).first():
         return jsonify({"Error": "Username exists"})
 
     u = User(user_name, password)
@@ -273,8 +268,7 @@ def userInfo():
         try:
             decoded = decode_token(token)
 
-            u = User.query.filter_by(id=decoded)
-
+            u = User.query.filter_by(id=decoded).first()
             return jsonify(user_schema.dump(u))
 
         except jwt.ExpiredSignatureError:
@@ -294,9 +288,11 @@ def authentication():
     auth = User.query.filter_by(user_name=username).first()
 
     if auth is None:
+        print("hello0")
         abort(403)
 
     if not bcrypt.check_password_hash(auth.hashed_password, password):
+        print("hello1")
         abort(403)
     else:
         token = create_token(auth.id)
