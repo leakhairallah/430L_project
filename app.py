@@ -40,9 +40,9 @@ def stats():
     buy_per_day_avg = []
 
     for i in range(20):
-        avg_usd_lbp = Transaction.query.filter(Transaction.added_date.between(d - i * diff, d),
+        avg_usd_lbp = Transaction.query.filter(Transaction.added_date.between(d - (i+1) * diff, d - i * diff),
                                                Transaction.usd_to_lbp == True).all()
-        avg_lbp_usd = Transaction.query.filter(Transaction.added_date.between(d - i * diff, d),
+        avg_lbp_usd = Transaction.query.filter(Transaction.added_date.between(d - (i+1) * diff, d - i * diff),
                                                Transaction.usd_to_lbp == False).all()
         sell = []
         buy = []
