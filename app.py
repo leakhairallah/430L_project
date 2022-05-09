@@ -83,15 +83,18 @@ def addItem():
         try:
             decoded = decode_token(token)
             u = User.query.filter_by(id=decoded).first()
-            rates = getRates()
 
             if not usd_to_lbp:
+                if u.balance_lbp < lbpAmount:
+                    return jsonify({"Error": "Not enough LBP to sell"})
                 i = Item(lbpAmount, usdAmount, usd_to_lbp, None, u.user_name)
                 db.session.add(i)
                 db.session.commit()
                 return jsonify(item_schema.dump(i))
 
             else:
+                if u.balance_usd < usdAmount:
+                    return jsonify({"Error": "Not enough USD to sell"})
                 i = Item(lbpAmount, usdAmount, usd_to_lbp, None, u.user_name)
                 db.session.add(i)
                 db.session.commit()
@@ -106,7 +109,6 @@ def addItem():
 @app.route('/getItems', methods=["GET"])
 def getItems():
     i = Item.query.filter_by(bought=None).all()
-    print(i)
     return jsonify(items_schema.dump(i))
 
 
@@ -119,8 +121,11 @@ def getItemsByUser():
     else:
         try:
             decoded = decode_token(token)
-            all_items = Item.query.filter_by(user_id=decoded).all()
-            return jsonify(items_schema.dump(all_items))
+            u = User.query.filter_by(id=decoded).first()
+            all_items_put = Item.query.filter_by(user_id=decoded).all()
+            all_items_bought = Item.query.filter_by(bought=u.user_name).all()
+
+            return jsonify({"put": items_schema.dump(all_items_put), "bought": items_schema.dump(all_items_bought)})
 
         except jwt.ExpiredSignatureError:
             abort(403)
@@ -146,6 +151,8 @@ def purchase():
             user2 = User.query.filter_by(user_name=i.user_id).first()
 
             if i.sell:
+                if user1.balance_lbp < i.lbpAmount:
+                    return jsonify({"Error": "Cannot purchase"})
                 user1.balance_usd += i.usdAmount
                 user1.balance_lbp -= i.lbpAmount
                 user2.balance_usd -= i.usdAmount
@@ -154,6 +161,8 @@ def purchase():
                 t2 = Transaction(i.usdAmount, i.lbpAmount, False, user2.id)
 
             else:
+                if user1.balance_usd < i.usdAmount:
+                    return jsonify({"Error": "Cannot purchase"})
                 user1.balance_usd -= i.usdAmount
                 user1.balance_lbp += i.lbpAmount
                 user2.balance_usd += i.usdAmount
