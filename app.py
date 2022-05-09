@@ -43,7 +43,7 @@ def stats():
         avg_usd_lbp = Transaction.query.filter(Transaction.added_date.between(d - i * diff, d),
                                                Transaction.usd_to_lbp == True).all()
         avg_lbp_usd = Transaction.query.filter(Transaction.added_date.between(d - i * diff, d),
-                                               Transaction.usd_to_lbp == True).all()
+                                               Transaction.usd_to_lbp == False).all()
         sell = []
         buy = []
 
@@ -61,8 +61,8 @@ def stats():
         else:
             lbp_to_usd = 0
 
-        sell_per_day_count.append(avg_lbp_usd.count())
-        buy_per_day_count.append(avg_usd_lbp.count())
+        sell_per_day_count.append(len(avg_lbp_usd))
+        buy_per_day_count.append(len(avg_usd_lbp))
         sell_per_day_avg.append(lbp_to_usd)
         buy_per_day_avg.append(usd_to_lbp)
 
