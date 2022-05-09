@@ -112,7 +112,7 @@ def getItems():
     return jsonify(items_schema.dump(i))
 
 
-@app.route('/getItemsByUser', methods=["POST"])
+@app.route('/getItemsByUser', methods=["GET"])
 def getItemsByUser():
     token = extract_auth_token(request)
 
@@ -134,7 +134,7 @@ def getItemsByUser():
 
 
 
-@app.route('/purchase', methods=['GET'])
+@app.route('/purchase', methods=['POST'])
 def purchase():
     token = extract_auth_token(request)
     print(request.json)
