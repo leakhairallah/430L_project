@@ -134,7 +134,7 @@ def getItemsByUser():
 
 
 
-@app.route('/purchase', methods=['POST'])
+@app.route('/purchase', methods=['GET'])
 def purchase():
     token = extract_auth_token(request)
     print(request.json)
