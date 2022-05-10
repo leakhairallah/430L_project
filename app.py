@@ -48,23 +48,23 @@ def stats():
         buy = []
 
         for el in avg_usd_lbp:
-            buy.append(el.lbp_amount / el.usd_amount)
-        for el in avg_lbp_usd:
             sell.append(el.lbp_amount / el.usd_amount)
+        for el in avg_lbp_usd:
+            buy.append(el.lbp_amount / el.usd_amount)
 
         if len(buy) > 0:
-            usd_to_lbp = round((sum(buy) / len(buy)), 2)
-        else:
-            usd_to_lbp = 0
-        if len(sell) > 0:
-            lbp_to_usd = round((sum(sell) / len(sell)), 2)
+            lbp_to_usd = round((sum(buy) / len(buy)), 2)
         else:
             lbp_to_usd = 0
+        if len(sell) > 0:
+            usd_to_lbp = round((sum(sell) / len(sell)), 2)
+        else:
+            usd_to_lbp = 0
 
-        sell_per_day_count.append(len(avg_lbp_usd))
-        buy_per_day_count.append(len(avg_usd_lbp))
-        sell_per_day_avg.append(lbp_to_usd)
-        buy_per_day_avg.append(usd_to_lbp)
+        buy_per_day_count.append(len(avg_lbp_usd))
+        sell_per_day_count.append(len(avg_usd_lbp))
+        buy_per_day_avg.append(lbp_to_usd)
+        sell_per_day_avg.append(usd_to_lbp)
 
     return jsonify({"sell_count": sell_per_day_count, "buy_count": buy_per_day_count, "avg_sell": sell_per_day_avg,
                     "avg_buy": buy_per_day_avg})
@@ -346,17 +346,17 @@ def getRates():
     buy = []
 
     for el in avg_usd_lbp:
-        buy.append(el.lbp_amount / el.usd_amount)
-    for el in avg_lbp_usd:
         sell.append(el.lbp_amount / el.usd_amount)
+    for el in avg_lbp_usd:
+        buy.append(el.lbp_amount / el.usd_amount)
 
     if len(buy) > 0:
-        usd_to_lbp = round((sum(buy) / len(buy)), 2)
-    else:
-        usd_to_lbp = 0
-    if len(sell) > 0:
-        lbp_to_usd = round((sum(sell) / len(sell)), 2)
+        lbp_to_usd = round((sum(buy) / len(buy)), 2)
     else:
         lbp_to_usd = 0
+    if len(sell) > 0:
+        usd_to_lbp = round((sum(sell) / len(sell)), 2)
+    else:
+        usd_to_lbp = 0
 
     return usd_to_lbp, lbp_to_usd

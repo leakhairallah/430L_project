@@ -1,5 +1,5 @@
 
-# CMPS SQL Assignment
+# 430L - Final Project
 
 API for Saref El Yom website and desktop application.
 
@@ -21,6 +21,13 @@ API for Saref El Yom website and desktop application.
 - Proceed by installing the requirements with the following command
 ```http
     pip install -r requirements.txt
+```
+- After changing the url to your database, in the main project directory run the following commands from python
+```http
+	from app import db
+	db.create_all()
+	exit()
+		
 ```
 - Finally make your way to the main project directory and run the following command
 ```http
