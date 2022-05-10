@@ -1,0 +1,418 @@
+openapi: 3.0.0
+info:
+  title: Exchange Rate API
+  description: Exhcnage Rate API by Saref El Yom
+  contact:
+    name: Lea Khairallah
+    url: http//github.com/leakhairallah/430L_project
+  version: 1.0.0
+servers:
+  - url: flask-server
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          minimum: 0
+        user_name:
+          type: string
+        balance_lbp:
+          type: number
+          default: 0
+        balance_usd:
+          type: number
+          default: 0
+        hashed_password:
+          type: string
+        is_admin:
+          type: boolean
+      required:
+        - "id"
+        - "user_name"
+        - "hashed_password"
+        - "is_admin"
+      example:
+        id: 1
+        username: "leakhairallah"
+        balance_usd: 750
+        balance_lbp: 4006500
+        is_admin: false
+    Item:
+      type: object
+      properties:
+        id:
+          type: integer
+          minimum: 0
+        usdAmount:
+          type: number
+        lbpAmount:
+          type: number
+        sell:
+          type: boolean
+        bought:
+          type: integer
+        user_id:
+          type: integer
+      required:
+        - "id"
+        - "usdAmount"
+        - "lbpAmount"
+        - "sell"
+        - "user_id"
+      example:
+        id: 1
+        usdAmount: 30
+        lbpAmount: 45000
+        sell: false
+        bought: 'None'
+        user_id: 'leakhairallah'
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: integer
+          minimum: 0
+        usd_amount:
+          type: number
+        lbp_amount:
+          type: number
+        usd_to_lbp:
+          type: boolean
+        added_date:
+          type: object
+        user_id:
+          type: integer
+      required:
+        - "id"
+        - "usd_amount"
+        - "lbp_amount"
+        - "usd_to_lbp"
+        - "added_date"
+      example:
+        id: 1
+        usd_amount: 30
+        lbp_amount: 45000
+        usd_to_lbp: true
+        added_date: '2022-05-11'
+        user_id: 'leakhairallah'
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+
+paths:
+  /exchangeRates:
+    description: Exchange Rates Resource
+    get:
+      description: Operation to Fetch Exchange rates
+      responses:
+        '200':
+          description: 'Returns 2 exchange rates: usd_to_lbp and lbp_to_usd computed with the transactions made within the last 3 days'
+          content: 
+            application/json:
+              schema:
+               type: object
+               properties:
+                  usd_to_lbp: 
+                    type: number
+                  lbp_to_usd:
+                    type: number
+              example:
+                usd_to_lbp: 37000
+                lbp_to_usd: 37250
+  /stats:
+    description: Statistics Resource
+    get:
+      description: Operation to Fetch Statistics
+      responses:
+        '200':
+          description: 'Returns 4 lists: 2 for buy and 2 for sell. One of those 2 lists includes the counts of transactions made per day within the last 20 days, and the second one includes the average exchange rate per day within the last 20 days.'
+          content: 
+            application/json:
+              schema:
+               type: object
+               properties:
+                  sell_count: 
+                    type: array
+                    items: 
+                      type: integer
+                  buy_count:
+                    type: array
+                    items:
+                      type: integer
+                  avg_sell: 
+                    type: array
+                    items:
+                      type: number
+                  avg_buy:
+                    type: array
+                    items:
+                      type: number
+              example: 
+                sell_count: [0 .. 20]
+                buy_count: [0 .. 20]  
+                avg_sell: [0 .. 20]
+                avg_buy: [0 .. 20]
+  /getItems:
+    description: Items Resource
+    get:
+      description: Operation to fetch all the fields of all items that are not purchased
+      responses:
+        '200':
+          description: 'All items not purchased'
+          content:
+            'application/json':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Item'
+  /getItemsByUser:
+    description: Items By User Resource
+    get:
+      description: Operation to fetch all the fields of all items that are either bought or put up by the user that made the request.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 'Returns 2 lists: one for all the items that were bought, and one for all the items that were put up'
+          content:
+            'application/json':
+              schema:
+                type: object
+                properties:
+                  put:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Item'
+                  bought:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: 
+                          type: integer
+                        usdAmount: 
+                          type: number
+                        lbpAmount: 
+                          type: number
+                        sell:
+                          type: boolean
+                        bought: 
+                          type: string
+                        user_id:
+                          type: integer
+        '403':
+          description: 'Error if the token not found or expired'
+          
+  /transaction:
+    description: Transaction Resources
+    get:
+      description: Operation to fetch all transactions by the user that made the request by decoding the token.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 'Returns a list of transactions objects with the user id of the user that made the request'
+          content:
+            'application/json':
+              schema:
+                type: array
+                items:
+                 $ref: '#/components/schemas/Transaction'
+  
+        '403':
+          description: 'Error if the token not found or expired'
+  
+  /userInfo:
+    description: User Resources
+    get:
+      description: Operation to fetch all the fields of the user that made the request by decoding the token.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 'Returns a User object with all the fields of the user that made the request'
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/User'
+  /addItem:
+    post:
+      description: 'Add a new item to the shop'
+      security:
+        - BearerAuth: []     
+      requestBody:
+        description: Details of the item to add
+        required: true
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/Item'
+      responses:
+        '201':
+          description: 'The function checks whether the users balances allow such item and then the item would successfully be added to the shop'      
+        '401':
+          description: 'Non authorized to do this operation'  
+        '400':
+          description: 'Bad request'
+          
+  /purchase:
+    post:
+      description: 'Make a purchase between 2 users'
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: Details of the item that was bought
+        required: true
+        content:
+          'application/json':
+            schema:
+              type: object
+              properties:
+                idItem: 
+                  type: integer
+            example:
+              idItem: 1
+      
+      responses:
+        '201':
+          description: 'The function checks whether the user choosing the item has enough money, and then does the trading between the 2 balances'      
+        '401':
+          description: 'Non authorized to do this operation'  
+        '400':
+          description: 'Bad request'
+  
+  /signUp:
+    post:
+      description: 'Sign Up a user'
+      requestBody:
+        description: Username and password of the user to be added
+        required: true
+        content:
+          'application/json':
+            schema:
+              type: object
+              properties:
+                user_name:
+                  type: string
+                password:
+                 type: string
+            example:
+              user_name: 'leakhairallah'
+              password: '430Lbackend#'
+      responses:
+        '201':
+          description: 'The function checks whether username exsits, if not it hashes the password and creates a User object with the info entered'      
+        '401':
+          description: 'Non authorized to do this operation'  
+        '400':
+          description: 'Bad request'
+  
+  /authentication:
+    post:
+      description: 'Authenticate a user'
+      requestBody:
+        description: Username and password of user trying to authenticate
+        required: true
+        content: 
+          'application/json':
+            schema:
+              type: object
+              properties:
+                user_name:
+                  type: string
+                password:
+                 type: string
+              example:
+                user_name: 'leakhairallah'
+                password: '430Lbackend#'
+      responses:
+        '201':
+          description: 'The function checks whether username matches password in database and generats a token for the session'
+          content:
+            'application/json':
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  is_admin: 
+                    type: boolean
+              example: 
+                token: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2NTI0MzY0NDksImlhdCI6MTY1MjA5MDg0OSwic3ViIjozfQ.T3TnRpFU5xVs8VmJ3MKDtOiY4mAkiCfCopNkvaQpK6g'
+                is_admin: false
+        '401':
+          description: 'Non authorized to do this operation'  
+        '400':
+          description: 'Bad request'
+  
+  /addMoney:
+    post:
+      description: 'Add money in user balance'
+      security:
+        - BearerAuth: [admin]
+      requestBody:
+        description: Amount to be added to the balances (only allowed to user admin)
+        required: true
+        content: 
+          'application/json':
+            schema:
+              type: object
+              properties:
+                usd_amount:
+                  type: number
+                lbp_amount:
+                 type: number
+                username:
+                  type: string
+              example:
+                usd_amount: 30
+                lbp_amount: 1000000
+                username: 'leakhairallah'
+      responses:
+        '201':
+          description: 'The function adds money to the balance of the user that was given  in the body'
+        '401':
+          description: 'Non authorized to do this operation'  
+        '400':
+          description: 'Bad request'
+  
+  /transactionP:
+    post:
+      description: 'Make a transaction'
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: USD amount, LBP amount and nature of the transaction
+        required: true
+        content: 
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/Transaction'
+      responses:
+        '201':
+          description: 'The transaction would be successfully added'
+        '401':
+          description: 'Non authorized to do this operation'  
+        '400':
+          description: 'Bad request'
+  
+                  
+      
+                          
+                          
+                        
+                        
+            
+  
+                    
+                    
+                
+                
+        
+    
+  
+
+
